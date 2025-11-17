@@ -37,7 +37,7 @@ htmlcov/
 .uvicorn/
 
 # Environment variables
-api/.env
+.env
 .flaskenv
 .secrets.toml
 

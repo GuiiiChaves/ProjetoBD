@@ -8,7 +8,7 @@ from sqlalchemy.engine import Engine, Connection
 
 
 # Carrega .env a partir da raiz do projeto
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH)
 
