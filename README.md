@@ -1,8 +1,6 @@
-
 # Projeto Carteira Digital 🪙
 
-Este projeto é um *template* inicial para implementar uma **API de Carteira Digital** 
-na disciplina Projeto Banco de Dados:
+Este projeto implementa uma **API de Carteira Digital** completa para a disciplina Projeto de Banco de Dados:
 
 - **FastAPI**
 - **MySQL**
@@ -12,18 +10,18 @@ na disciplina Projeto Banco de Dados:
 
 A carteira permite:
 
-- Criar carteiras (com chave pública e chave privada)
-- Ver saldos por moeda (BTC, ETH, SOL, USD)
-- Fazer **depósitos**
-- Fazer **saques** (com taxa e validação da chave privada)
-- Fazer **conversão entre moedas** (usando cotação da Coinbase)
-- Fazer **transferência entre carteiras**
+- ✅ Criar carteiras (com chave pública e chave privada)
+- ✅ Ver saldos por moeda (BTC, ETH, SOL, USD, BRL)
+- ✅ Fazer **depósitos** (sem taxa)
+- ✅ Fazer **saques** (com taxa e validação da chave privada)
+- ✅ Fazer **conversão entre moedas** (usando cotação da Coinbase + taxa)
+- ✅ Fazer **transferência entre carteiras** (com taxa na origem)
 
 ---
 
 ## 1. Pré-requisitos
 
-Antes de começar, você precisa ter instalado no seu computador:
+Antes de começar, você precisa ter instalado:
 
 - Python 3.10+
 - MySQL 8+
@@ -42,7 +40,7 @@ mysql --version
 
 ```bash
 git clone https://github.com/timotrob/WalletDb_v2.git
-cd projeto_carteira_digital
+cd WalletDb_v2
 ```
 
 Ou extraia o ZIP e abra o terminal dentro da pasta do projeto.
@@ -54,7 +52,7 @@ Ou extraia o ZIP e abra o terminal dentro da pasta do projeto.
 ### Windows:
 ```bash
 python -m venv venv
-.env\Scripts\Activate
+venv\Scripts\Activate
 ```
 
 ### Linux/Mac:
@@ -75,36 +73,53 @@ pip install -r requirements.txt
 
 ## 5. Criar o banco e usuário no MySQL
 
-Execute:
+Abra o MySQL e execute o script DDL:
+
+```bash
+mysql -u root -p < sql/DDL_Carteira_Digital.sql
+```
+
+Ou dentro do MySQL:
 
 ```sql
-SOURCE /sql/DDL_Carteira_Digital.sql;
+SOURCE sql/DDL_Carteira_Digital.sql;
 ```
 
 Isso irá:
 
 - Criar o banco `wallet_homolog`
-- Criar usuário restrito `wallet_api_homolog`
-A Criação das tabelas não está incluindo,
-deve ser gerado pelo aluno.
+- Criar usuário restrito `wallet_api_homolog` com senha `api123`
+- Criar todas as tabelas necessárias (carteira, moeda, saldo_carteira, deposito_saque, conversao, transferencia)
+- Inserir as 5 moedas obrigatórias (BTC, ETH, SOL, USD, BRL)
 
 ---
 
 ## 6. Criar o arquivo `.env`
 
-Crie o arquivo `.env` na raiz do projeto:
+Copie o arquivo de exemplo e ajuste se necessário:
+
+```bash
+cp .env.example .env
+```
+
+Conteúdo padrão do `.env`:
 
 ```env
+# Configurações de Banco de Dados
 DB_HOST=localhost
 DB_PORT=3306
-DB_USER=wallet_api_homolog
-DB_PASSWORD=????
 DB_NAME=wallet_homolog
-TAXA_SAQUE_PERCENTUAL=0.01
-TAXA_CONVERSAO_PERCENTUAL=0.02
-TAXA_TRANSFERENCIA_PERCENTUAL=0.01
+DB_USER=wallet_api_homolog
+DB_PASSWORD=api123
+
+# Configurações de Chaves
 PRIVATE_KEY_SIZE=32
-PUBLIC_KEY_SIZE=16
+PUBLIC_KEY_SIZE=32
+
+# Taxas (valores decimais, ex: 0.01 = 1%)
+TAXA_SAQUE=0.01
+TAXA_CONVERSAO=0.02
+TAXA_TRANSFERENCIA=0.015
 ```
 
 ---
@@ -112,20 +127,42 @@ PUBLIC_KEY_SIZE=16
 ## 7. Estrutura do projeto
 
 ```
-projeto_carteira_digital/
+WalletDb_v2/
 │
 ├── api/
-│   ├── main.py
+│   ├── main.py                    # Aplicação FastAPI principal
+│   │
 │   ├── models/
+│   │   ├── carteira_models.py     # Modelos Pydantic para carteiras
+│   │   └── operacao_models.py     # Modelos para operações
+│   │
 │   ├── routers/
+│   │   ├── carteira_router.py     # Endpoints de carteiras
+│   │   ├── movimentacao_router.py # Endpoints de depósito/saque
+│   │   ├── conversao_router.py    # Endpoints de conversão
+│   │   └── transferencia_router.py # Endpoints de transferência
+│   │
 │   ├── services/
+│   │   ├── carteira_service.py
+│   │   ├── movimentacao_service.py
+│   │   ├── conversao_service.py
+│   │   ├── transferencia_service.py
+│   │   └── coinbase_service.py    # Integração com API Coinbase
+│   │
 │   └── persistence/
-│       │── repositories/
-│       └── db.py
+│       ├── db.py                  # Conexão com banco
+│       └── repositories/
+│           ├── carteira_repository.py
+│           ├── movimentacao_repository.py
+│           ├── conversao_repository.py
+│           └── transferencia_repository.py
 │
-├── sql/DDL_Carteira_Digital.sql
+├── sql/
+│   └── DDL_Carteira_Digital.sql   # Script de criação do banco
+│
 ├── requirements.txt
-└── .env
+├── .env.example
+└── README.md
 ```
 
 ---
@@ -136,40 +173,216 @@ projeto_carteira_digital/
 uvicorn api.main:app --reload
 ```
 
-Acesse:
+Acesse a documentação interativa:
 
-👉 http://127.0.0.1:8000/docs
-
----
-
-## 9. Testes básicos
-
-### Criar carteira:
-POST /carteiras
-
-### Ver saldo:
-GET /carteiras/{endereco}/saldos
-
-### Depósito:
-POST /carteiras/{endereco}/depositos
-
-### Saque:
-POST /carteiras/{endereco}/saques
-
-### Conversão:
-POST /carteiras/{endereco}/conversoes
-
-### Transferência:
-POST /carteiras/{endereco_origem}/transferencias
+👉 **http://127.0.0.1:8000/docs**
 
 ---
 
-## 10. Problemas comuns
+## 9. Endpoints Disponíveis
 
-- Banco não encontrado → conferir `.env`
-- MySQL parado → iniciar serviço
-- ImportError → verificar `__init__.py`
+### 🔑 Carteiras
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/carteiras` | Cria nova carteira (retorna chave privada apenas uma vez) |
+| GET | `/carteiras` | Lista todas as carteiras |
+| GET | `/carteiras/{endereco}` | Busca carteira por endereço |
+| DELETE | `/carteiras/{endereco}` | Bloqueia carteira |
+| GET | `/carteiras/{endereco}/saldos` | Lista saldos em todas as moedas |
+
+### 💰 Depósitos e Saques
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/carteiras/{endereco}/depositos` | Realiza depósito (sem taxa) |
+| POST | `/carteiras/{endereco}/saques` | Realiza saque (requer chave privada + taxa) |
+
+### 🔄 Conversão
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/carteiras/{endereco}/conversoes` | Converte entre moedas (usa API Coinbase + taxa) |
+
+### 📤 Transferência
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/carteiras/{endereco_origem}/transferencias` | Transfere entre carteiras (taxa na origem) |
 
 ---
 
-## 11. Boa implementação! 🚀
+## 10. Exemplos de Uso
+
+### Criar Carteira
+```bash
+curl -X POST http://localhost:8000/carteiras
+```
+
+**Resposta:**
+```json
+{
+  "endereco_carteira": "a1b2c3d4...",
+  "data_criacao": "2025-11-17T10:30:00",
+  "status": "ATIVA",
+  "chave_privada": "secret123..."
+}
+```
+
+⚠️ **IMPORTANTE:** Guarde a `chave_privada`! Ela é retornada apenas uma vez.
+
+---
+
+### Ver Saldos
+```bash
+curl http://localhost:8000/carteiras/{endereco}/saldos
+```
+
+---
+
+### Fazer Depósito
+```bash
+curl -X POST http://localhost:8000/carteiras/{endereco}/depositos \
+  -H "Content-Type: application/json" \
+  -d '{
+    "codigo_moeda": "BTC",
+    "valor": 1.5
+  }'
+```
+
+---
+
+### Fazer Saque
+```bash
+curl -X POST http://localhost:8000/carteiras/{endereco}/saques \
+  -H "Content-Type: application/json" \
+  -d '{
+    "codigo_moeda": "BTC",
+    "valor": 0.5,
+    "chave_privada": "secret123..."
+  }'
+```
+
+---
+
+### Converter Moedas
+```bash
+curl -X POST http://localhost:8000/carteiras/{endereco}/conversoes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "moeda_origem": "BTC",
+    "moeda_destino": "USD",
+    "valor_origem": 0.1,
+    "chave_privada": "secret123..."
+  }'
+```
+
+---
+
+### Transferir entre Carteiras
+```bash
+curl -X POST http://localhost:8000/carteiras/{endereco_origem}/transferencias \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endereco_destino": "xyz789...",
+    "codigo_moeda": "BTC",
+    "valor": 0.2,
+    "chave_privada": "secret123..."
+  }'
+```
+
+---
+
+## 11. Segurança
+
+- ✅ Chave privada armazenada apenas como **hash SHA-256**
+- ✅ Validação de chave privada em operações sensíveis
+- ✅ Verificação de saldo antes de saques/conversões/transferências
+- ✅ Validação de status da carteira (bloqueada não pode operar)
+- ✅ Usuário do banco com privilégios **apenas DML** (sem DDL)
+
+---
+
+## 12. Taxas Configuráveis
+
+Todas as taxas são configuradas via `.env`:
+
+- **TAXA_SAQUE**: Padrão 1% (0.01)
+- **TAXA_CONVERSAO**: Padrão 2% (0.02)
+- **TAXA_TRANSFERENCIA**: Padrão 1.5% (0.015)
+
+---
+
+## 13. Moedas Suportadas
+
+| Código | Nome | Tipo |
+|--------|------|------|
+| BTC | Bitcoin | CRYPTO |
+| ETH | Ethereum | CRYPTO |
+| SOL | Solana | CRYPTO |
+| USD | Dólar Americano | FIAT |
+| BRL | Real Brasileiro | FIAT |
+
+---
+
+## 14. Problemas Comuns
+
+### Erro de conexão com banco
+- Verifique se o MySQL está rodando
+- Confira as credenciais no `.env`
+- Teste a conexão: `mysql -u wallet_api_homolog -papi123 wallet_homolog`
+
+### Erro ao importar módulos
+- Verifique se o venv está ativado
+- Reinstale as dependências: `pip install -r requirements.txt`
+
+### Erro na API Coinbase
+- Verifique sua conexão com a internet
+- Alguns pares de moedas podem não estar disponíveis
+
+---
+
+## 15. Tecnologias Utilizadas
+
+- **FastAPI** - Framework web moderno e rápido
+- **SQLAlchemy Core** - Driver de conexão (sem ORM)
+- **MySQL** - Banco de dados relacional
+- **Pydantic** - Validação de dados
+- **httpx** - Cliente HTTP assíncrono (Coinbase API)
+- **python-dotenv** - Gerenciamento de variáveis de ambiente
+
+---
+
+## 16. Próximos Passos (Opcional)
+
+- [ ] Adicionar autenticação JWT
+- [ ] Implementar paginação nos endpoints de listagem
+- [ ] Criar endpoint de histórico de transações
+- [ ] Adicionar testes unitários
+- [ ] Implementar cache para cotações
+- [ ] Adicionar logs estruturados
+
+---
+
+## 17. Contribuindo
+
+Este projeto é educacional. Sinta-se livre para:
+- Reportar bugs
+- Sugerir melhorias
+- Fazer fork e experimentar
+
+---
+
+## 18. Licença
+
+Projeto educacional - MIT License
+
+---
+
+## 19. Contato
+
+Dúvidas sobre o projeto? Entre em contato através do GitHub!
+
+---
+
+**Boa implementação! 🚀**

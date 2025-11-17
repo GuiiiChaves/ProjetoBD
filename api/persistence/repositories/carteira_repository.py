@@ -26,7 +26,7 @@ class CarteiraRepository:
         hash_privada = hashlib.sha256(chave_privada.encode()).hexdigest()
 
         with get_connection() as conn:
-            # 2) INSERT
+            # 2) INSERT da carteira
             conn.execute(
                 text("""
                     INSERT INTO carteira (endereco_carteira, hash_chave_privada)
@@ -35,7 +35,17 @@ class CarteiraRepository:
                 {"endereco": endereco, "hash_privada": hash_privada},
             )
 
-            # 3) SELECT para retornar a carteira criada
+            # 3) Inicializar saldos zerados para todas as moedas
+            conn.execute(
+                text("""
+                    INSERT INTO saldo_carteira (endereco_carteira, codigo_moeda, saldo)
+                    SELECT :endereco, codigo, 0
+                    FROM moeda
+                """),
+                {"endereco": endereco},
+            )
+
+            # 4) SELECT para retornar a carteira criada
             row = conn.execute(
                 text("""
                     SELECT endereco_carteira,
@@ -106,3 +116,41 @@ class CarteiraRepository:
             ).mappings().first()
 
         return dict(row) if row else None
+
+    def buscar_saldos(self, endereco_carteira: str) -> List[Dict[str, Any]]:
+        """Retorna todos os saldos da carteira"""
+        with get_connection() as conn:
+            rows = conn.execute(
+                text("""
+                    SELECT sc.codigo_moeda,
+                           m.nome as nome_moeda,
+                           m.tipo as tipo_moeda,
+                           sc.saldo
+                      FROM saldo_carteira sc
+                      JOIN moeda m ON sc.codigo_moeda = m.codigo
+                     WHERE sc.endereco_carteira = :endereco
+                     ORDER BY m.tipo, sc.codigo_moeda
+                """),
+                {"endereco": endereco_carteira},
+            ).mappings().all()
+
+        return [dict(r) for r in rows]
+
+    def validar_chave_privada(self, endereco_carteira: str, chave_privada: str) -> bool:
+        """Valida a chave privada comparando o hash"""
+        hash_fornecido = hashlib.sha256(chave_privada.encode()).hexdigest()
+        
+        with get_connection() as conn:
+            row = conn.execute(
+                text("""
+                    SELECT hash_chave_privada
+                      FROM carteira
+                     WHERE endereco_carteira = :endereco
+                """),
+                {"endereco": endereco_carteira},
+            ).mappings().first()
+
+        if not row:
+            return False
+        
+        return row["hash_chave_privada"] == hash_fornecido

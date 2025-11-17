@@ -2,6 +2,7 @@ from typing import List
 
 from api.persistence.repositories.carteira_repository import CarteiraRepository
 from api.models.carteira_models import Carteira, CarteiraCriada
+from api.models.operacao_models import Saldo
 
 
 class CarteiraService:
@@ -51,3 +52,29 @@ class CarteiraService:
             data_criacao=row["data_criacao"],
             status=row["status"],
         )
+
+    def buscar_saldos(self, endereco_carteira: str) -> List[Saldo]:
+        """Retorna todos os saldos da carteira"""
+        # Primeiro verifica se a carteira existe
+        carteira = self.carteira_repo.buscar_por_endereco(endereco_carteira)
+        if not carteira:
+            raise ValueError("Carteira não encontrada")
+        
+        rows = self.carteira_repo.buscar_saldos(endereco_carteira)
+        return [
+            Saldo(
+                codigo_moeda=r["codigo_moeda"],
+                nome_moeda=r["nome_moeda"],
+                tipo_moeda=r["tipo_moeda"],
+                saldo=r["saldo"],
+            )
+            for r in rows
+        ]
+
+    def validar_carteira_ativa(self, endereco_carteira: str) -> None:
+        """Valida se a carteira existe e está ativa"""
+        carteira = self.carteira_repo.buscar_por_endereco(endereco_carteira)
+        if not carteira:
+            raise ValueError("Carteira não encontrada")
+        if carteira["status"] != "ATIVA":
+            raise ValueError("Carteira está bloqueada")
